@@ -80,6 +80,9 @@
     padding: 20px 16px; padding-top: max(20px, env(safe-area-inset-top, 20px)); padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 20px); display: none;
   }
   .page.active { display: block; }
+  #page-home.active { display: flex; flex-direction: column; }
+  #page-home .home-tx-wrap { flex: 1; display: flex; flex-direction: column; }
+  #page-home .home-tx-wrap .card { flex: 1; }
   .page::-webkit-scrollbar { display: none; }
 
   /* Typography */
@@ -317,11 +320,13 @@
           </div>
         </div>
       </div>
+      <div class="home-tx-wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <h3 style="margin:0">Последние операции</h3>
         <span style="font-size:13px;color:var(--accent);cursor:pointer" onclick="switchTab('history')">Все →</span>
       </div>
       <div class="card" style="padding:4px 16px"><div id="home-tx-list"></div></div>
+      </div>
     </div>
 
     <!-- ADD -->
