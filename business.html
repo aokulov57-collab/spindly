@@ -61,11 +61,12 @@
 
   /* Tabs */
   .tab-bar {
-    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: 100%; max-width: 430px;
-    height: calc(var(--tab-h) + var(--safe-bottom));
+    position: fixed; bottom: 0; left: 0; right: 0;
+    width: 100%;
+    height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
     background: var(--surface); border-top: 1px solid var(--border);
-    display: flex; align-items: flex-start; padding-top: 8px; z-index: 100;
+    display: flex; align-items: flex-start; padding-top: 8px; z-index: 9999;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 2px 0; }
   .tab-item svg { width: 24px; height: 24px; color: var(--text3); }
