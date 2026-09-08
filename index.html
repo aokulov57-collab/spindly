@@ -1,0 +1,987 @@
+
+<meta charset="UTF-8">
+<title>Spendly</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spendly">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080A14;
+    --surface: #111320;
+    --surface2: #1A1D2E;
+    --surface3: #22253A;
+    --border: #2A2D45;
+    --text: #E8E9F5;
+    --text2: #7B7FA8;
+    --text3: #4E5175;
+    --accent: #6C7EFF;
+    --accent-dim: rgba(108,126,255,0.15);
+    --expense: #FF5370;
+    --expense-dim: rgba(255,83,112,0.12);
+    --income: #00D4A0;
+    --income-dim: rgba(0,212,160,0.12);
+    --warn: #FFB547;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --tab-h: 64px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #F2F3FA; --surface: #FFFFFF; --surface2: #ECEEF8; --surface3: #E0E3F2;
+      --border: #D0D3E8; --text: #14162A; --text2: #5C5F80; --text3: #9294B0;
+      --accent-dim: rgba(108,126,255,0.1); --expense-dim: rgba(255,83,112,0.08); --income-dim: rgba(0,212,160,0.08);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #080A14; --surface: #111320; --surface2: #1A1D2E; --surface3: #22253A;
+    --border: #2A2D45; --text: #E8E9F5; --text2: #7B7FA8; --text3: #4E5175;
+    --accent-dim: rgba(108,126,255,0.15); --expense-dim: rgba(255,83,112,0.12); --income-dim: rgba(0,212,160,0.12);
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F3FA; --surface: #FFFFFF; --surface2: #ECEEF8; --surface3: #E0E3F2;
+    --border: #D0D3E8; --text: #14162A; --text2: #5C5F80; --text3: #9294B0;
+    --accent-dim: rgba(108,126,255,0.1); --expense-dim: rgba(255,83,112,0.08); --income-dim: rgba(0,212,160,0.08);
+  }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app { display: flex; flex-direction: column; height: 100%; max-width: 430px; margin: 0 auto; position: relative; }
+
+  /* Tabs */
+  .tab-bar {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    height: calc(var(--tab-h) + var(--safe-bottom));
+    background: var(--surface); border-top: 1px solid var(--border);
+    display: flex; align-items: flex-start; padding-top: 8px; z-index: 100;
+  }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 2px 0; }
+  .tab-item svg { width: 24px; height: 24px; color: var(--text3); }
+  .tab-item span { font-size: 10px; letter-spacing: .3px; color: var(--text3); }
+  .tab-item.active span { color: var(--accent); }
+  .tab-item.active svg { color: var(--accent); }
+
+  /* Pages */
+  .pages { flex: 1; overflow: hidden; position: relative; padding-top: var(--safe-top); }
+  .page {
+    position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: 20px 16px; padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + 20px); display: none;
+  }
+  .page.active { display: block; }
+  .page::-webkit-scrollbar { display: none; }
+
+  /* Typography */
+  .page-title { font-size: 28px; font-weight: 700; letter-spacing: -.5px; color: var(--text); margin-bottom: 4px; }
+  .page-sub { font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+  h3 { font-size: 13px; font-weight: 600; color: var(--text2); letter-spacing: .6px; text-transform: uppercase; margin-bottom: 10px; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card-sm { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px 14px; }
+
+  /* Balance */
+  .balance-card {
+    background: linear-gradient(135deg, #1A1E3A 0%, #0F1225 100%);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 24px 20px 20px; margin-bottom: 16px; position: relative; overflow: hidden;
+  }
+  .balance-card::before {
+    content: ''; position: absolute; width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(108,126,255,.3) 0%, transparent 70%);
+    top: -60px; right: -40px; pointer-events: none;
+  }
+  .balance-label { font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: rgba(255,255,255,.5); margin-bottom: 6px; }
+  .balance-amount { font-size: 38px; font-weight: 700; letter-spacing: -1px; color: #fff; margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+  .balance-row { display: flex; gap: 16px; }
+  .balance-stat { flex: 1; }
+  .balance-stat-label { font-size: 11px; color: rgba(255,255,255,.45); margin-bottom: 3px; }
+  .balance-stat-val { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .income-val { color: var(--income); }
+  .expense-val { color: var(--expense); }
+
+  /* Transactions */
+  .tx-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .tx-icon.expense { background: var(--expense-dim); }
+  .tx-icon.income { background: var(--income-dim); }
+  .tx-meta { flex: 1; min-width: 0; }
+  .tx-name { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx-date { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .tx-amount { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tx-amount.expense { color: var(--expense); }
+  .tx-amount.income { color: var(--income); }
+
+  /* Add form */
+  .type-toggle { display: flex; gap: 8px; margin-bottom: 20px; background: var(--surface2); border-radius: var(--radius-sm); padding: 4px; }
+  .type-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; background: transparent; color: var(--text2); font-family: inherit; }
+  .type-btn.active-expense { background: var(--expense); color: #fff; }
+  .type-btn.active-income { background: var(--income); color: #fff; }
+  .amount-input {
+    width: 100%; border: none; background: transparent;
+    font-size: 42px; font-weight: 700; letter-spacing: -1px;
+    color: var(--text); text-align: center; outline: none;
+    font-variant-numeric: tabular-nums; caret-color: var(--accent); margin-bottom: 8px;
+  }
+  .amount-input::placeholder { color: var(--text3); }
+  .currency-label { text-align: center; font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+  .label { font-size: 12px; font-weight: 600; color: var(--text2); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 8px; margin-top: 16px; }
+
+  /* Category grid */
+  .cats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+  .cat-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 4px; border-radius: var(--radius-sm);
+    background: var(--surface2); border: 2px solid transparent;
+    cursor: pointer; transition: all .15s; font-size: 22px; position: relative;
+  }
+  .cat-btn span { font-size: 10px; color: var(--text2); text-align: center; line-height: 1.2; }
+  .cat-btn.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .cat-btn.edit-mode { opacity: .85; }
+  .cat-delete-btn {
+    position: absolute; top: -5px; right: -5px; width: 18px; height: 18px;
+    background: var(--expense); border-radius: 50%; border: 2px solid var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #fff; font-weight: 700; cursor: pointer; z-index: 2;
+    line-height: 1;
+  }
+
+  /* Inputs */
+  .text-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 15px; color: var(--text); outline: none;
+    font-family: inherit; resize: none; transition: border-color .15s;
+  }
+  .text-input:focus { border-color: var(--accent); }
+  .text-input::placeholder { color: var(--text3); }
+  .date-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 15px; color: var(--text); outline: none;
+    font-family: inherit; color-scheme: dark;
+  }
+  .date-input:focus { border-color: var(--accent); }
+
+  /* Buttons */
+  .btn-primary {
+    width: 100%; padding: 16px; border: none; border-radius: var(--radius);
+    background: var(--accent); color: #fff; font-size: 16px; font-weight: 700;
+    cursor: pointer; margin-top: 20px; transition: opacity .15s;
+    letter-spacing: .2px; font-family: inherit;
+  }
+  .btn-primary:active { opacity: .8; }
+  .btn-secondary {
+    padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface2); color: var(--text2);
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+  }
+  .btn-danger {
+    padding: 8px 16px; border: 1px solid var(--expense-dim); border-radius: 8px;
+    background: var(--expense-dim); color: var(--expense);
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .btn-icon {
+    display: flex; align-items: center; gap: 6px; padding: 7px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface2); color: var(--text2);
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: all .15s;
+  }
+  .btn-icon:active { opacity: .7; }
+  .btn-icon.active-edit { border-color: var(--warn); color: var(--warn); background: rgba(255,181,71,.1); }
+
+  /* Stats */
+  #stats-canvas { width: 100%; border-radius: var(--radius); display: block; }
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { font-size: 12px; color: var(--text2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .legend-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row-label { color: var(--text2); }
+  .stat-row-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Budget */
+  .budget-bar-wrap { height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; margin: 8px 0 4px; }
+  .budget-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+  .budget-item { margin-bottom: 16px; }
+  .budget-head { display: flex; justify-content: space-between; align-items: center; }
+  .budget-cat { font-size: 14px; font-weight: 500; }
+  .budget-nums { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  .budget-pct { font-size: 12px; font-weight: 600; }
+
+  /* Month nav */
+  .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .month-nav-btn {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    cursor: pointer; color: var(--text2); font-size: 18px;
+  }
+  .month-nav-label { font-size: 16px; font-weight: 600; }
+  .date-group-label { font-size: 12px; font-weight: 600; color: var(--text2); letter-spacing: .5px; text-transform: uppercase; margin: 16px 0 4px; }
+
+  /* Overlays / Sheets */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; display: none; align-items: flex-end; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .overlay.open { display: flex; }
+  .sheet {
+    width: 100%; max-width: 430px; margin: 0 auto;
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+    max-height: 85vh; overflow-y: auto;
+  }
+  .sheet::-webkit-scrollbar { display: none; }
+  .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+  .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+
+  /* Emoji picker */
+  .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
+  .emoji-opt {
+    height: 40px; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; border-radius: 8px; background: var(--surface2); cursor: pointer;
+    border: 2px solid transparent; transition: all .1s;
+  }
+  .emoji-opt.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .emoji-opt:active { transform: scale(.9); }
+
+  /* Cat editor list */
+  .cat-edit-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .cat-edit-item:last-child { border-bottom: none; }
+  .cat-edit-emoji { font-size: 24px; width: 36px; text-align: center; }
+  .cat-edit-name { flex: 1; font-size: 15px; }
+  .cat-edit-del {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--expense-dim);
+    border: none; color: var(--expense); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cat-edit-del:disabled { opacity: .3; cursor: default; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: calc(var(--tab-h) + var(--safe-bottom) + 16px);
+    left: 50%; transform: translateX(-50%);
+    background: var(--surface3); color: var(--text);
+    padding: 12px 20px; border-radius: 12px;
+    font-size: 14px; font-weight: 500; z-index: 300;
+    opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  #toast.show { opacity: 1; }
+
+  /* Empty */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 15px; }
+
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .chip.income { background: var(--income-dim); color: var(--income); }
+  .chip.expense { background: var(--expense-dim); color: var(--expense); }
+
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; }
+</style>
+
+<div id="app">
+  <div class="pages">
+
+    <!-- HOME -->
+    <div class="page active" id="page-home">
+      <div class="balance-card">
+        <div class="balance-label">Баланс</div>
+        <div class="balance-amount" id="home-balance">0 ₽</div>
+        <div class="balance-row">
+          <div class="balance-stat">
+            <div class="balance-stat-label">↑ Доходы</div>
+            <div class="balance-stat-val income-val" id="home-income">0 ₽</div>
+          </div>
+          <div class="balance-stat">
+            <div class="balance-stat-label">↓ Расходы</div>
+            <div class="balance-stat-val expense-val" id="home-expense">0 ₽</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0">Последние операции</h3>
+        <span style="font-size:13px;color:var(--accent);cursor:pointer" onclick="switchTab('history')">Все →</span>
+      </div>
+      <div class="card" style="padding:4px 16px"><div id="home-tx-list"></div></div>
+    </div>
+
+    <!-- ADD -->
+    <div class="page" id="page-add">
+      <div class="page-title">Новая запись</div>
+      <div class="page-sub" id="add-date-display"></div>
+      <div class="type-toggle">
+        <button class="type-btn active-expense" id="btn-expense" onclick="setType('expense')">↓ Расход</button>
+        <button class="type-btn" id="btn-income" onclick="setType('income')">↑ Доход</button>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px 12px">
+        <input class="amount-input" id="amount-input" type="number" inputmode="decimal" placeholder="0" min="0">
+        <div class="currency-label">рублей</div>
+      </div>
+
+      <div class="row-between" style="margin-top:16px;margin-bottom:8px">
+        <div class="label" style="margin:0">Категория</div>
+        <button class="btn-icon" id="edit-cats-btn" onclick="toggleCatEditMode()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Редактировать
+        </button>
+      </div>
+      <div class="cats-grid" id="cats-grid"></div>
+      <div id="add-new-cat-hint" style="display:none;margin-top:4px">
+        <button class="btn-icon" style="width:100%;justify-content:center;padding:10px" onclick="openAddCatSheet()">
+          ＋ Добавить категорию
+        </button>
+      </div>
+
+      <div class="label">Дата</div>
+      <input class="text-input date-input" type="date" id="tx-date">
+      <div class="label">Комментарий (необязательно)</div>
+      <input class="text-input" id="tx-comment" placeholder="Заметка..." type="text">
+      <button class="btn-primary" id="save-btn" onclick="saveTransaction()">Сохранить</button>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="page-history">
+      <div class="month-nav">
+        <div class="month-nav-btn" onclick="changeMonth(-1)">‹</div>
+        <div class="month-nav-label" id="history-month-label"></div>
+        <div class="month-nav-btn" onclick="changeMonth(1)">›</div>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="page" id="page-stats">
+      <div class="month-nav">
+        <div class="month-nav-btn" onclick="changeStatsMonth(-1)">‹</div>
+        <div class="month-nav-label" id="stats-month-label"></div>
+        <div class="month-nav-btn" onclick="changeStatsMonth(1)">›</div>
+      </div>
+      <div class="card" style="padding:16px"><canvas id="stats-canvas" height="200"></canvas></div>
+      <div class="legend-grid" id="stats-legend"></div>
+      <div style="height:16px"></div>
+      <h3>Итого за месяц</h3>
+      <div class="card" style="padding:4px 16px">
+        <div class="stat-row"><span class="stat-row-label">Доходы</span><span class="stat-row-val income-val" id="stats-income">0 ₽</span></div>
+        <div class="stat-row"><span class="stat-row-label">Расходы</span><span class="stat-row-val expense-val" id="stats-expense">0 ₽</span></div>
+        <div class="stat-row"><span class="stat-row-label">Сальдо</span><span class="stat-row-val" id="stats-net">0 ₽</span></div>
+      </div>
+    </div>
+
+    <!-- BUDGET -->
+    <div class="page" id="page-budget">
+      <div class="page-title">Бюджет</div>
+      <div class="page-sub" id="budget-month-display"></div>
+      <div class="card" style="padding:4px 16px;margin-bottom:20px">
+        <div class="stat-row"><span class="stat-row-label">Общий бюджет</span><span class="stat-row-val" id="budget-total-display">не задан</span></div>
+        <div class="stat-row"><span class="stat-row-label">Потрачено</span><span class="stat-row-val expense-val" id="budget-spent-display">0 ₽</span></div>
+        <div class="stat-row"><span class="stat-row-label">Остаток</span><span class="stat-row-val income-val" id="budget-left-display">—</span></div>
+      </div>
+      <div id="budget-bars"></div>
+      <button class="btn-primary" style="margin-top:8px" onclick="openBudgetSheet()">⚙️ Настроить бюджет</button>
+    </div>
+
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <div class="tab-item active" id="tab-home" onclick="switchTab('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Главная</span>
+    </div>
+    <div class="tab-item" id="tab-history" onclick="switchTab('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span>История</span>
+    </div>
+    <div class="tab-item" id="tab-add" onclick="switchTab('add')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>Добавить</span>
+    </div>
+    <div class="tab-item" id="tab-stats" onclick="switchTab('stats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span>Статистика</span>
+    </div>
+    <div class="tab-item" id="tab-budget" onclick="switchTab('budget')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+      <span>Бюджет</span>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction edit sheet -->
+<div class="overlay" id="tx-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="tx-sheet-title">Транзакция</div>
+    <div id="tx-sheet-body"></div>
+  </div>
+</div>
+
+<!-- Budget sheet -->
+<div class="overlay" id="budget-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Настроить бюджет</div>
+    <div class="label">Общий месячный лимит (₽)</div>
+    <input class="text-input" id="budget-total-input" type="number" inputmode="decimal" placeholder="50 000">
+    <div id="budget-cat-inputs"></div>
+    <button class="btn-primary" onclick="saveBudget()">Сохранить</button>
+    <button class="btn-secondary" style="width:100%;margin-top:8px" onclick="closeBudgetSheet()">Отмена</button>
+  </div>
+</div>
+
+<!-- Category constructor sheet -->
+<div class="overlay" id="cat-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="cat-sheet-title">Категории</div>
+
+    <!-- Type switch inside sheet -->
+    <div class="type-toggle" style="margin-bottom:16px">
+      <button class="type-btn active-expense" id="cs-btn-expense" onclick="setCatSheetType('expense')">↓ Расходы</button>
+      <button class="type-btn" id="cs-btn-income" onclick="setCatSheetType('income')">↑ Доходы</button>
+    </div>
+
+    <!-- Existing list -->
+    <div id="cat-sheet-list"></div>
+
+    <div class="divider"></div>
+
+    <!-- Add new -->
+    <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px;letter-spacing:.4px;text-transform:uppercase">Новая категория</div>
+    <div class="label" style="margin-top:0">Эмодзи</div>
+    <div class="emoji-grid" id="emoji-picker"></div>
+    <input class="text-input" id="new-cat-emoji-custom" placeholder="Или введи своё эмодзи..." maxlength="4" style="margin-bottom:10px">
+    <div class="label" style="margin-top:0">Название</div>
+    <input class="text-input" id="new-cat-name" placeholder="Например: Спортзал">
+    <button class="btn-primary" style="margin-top:12px" onclick="addNewCat()">Добавить категорию</button>
+    <button class="btn-secondary" style="width:100%;margin-top:8px" onclick="closeCatSheet()">Закрыть</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── Default categories (fallback) ──────────────────────────────────────────
+const DEFAULT_CATS = {
+  expense: [
+    {emoji:'🍕', name:'Еда'}, {emoji:'🚇', name:'Транспорт'},
+    {emoji:'🏠', name:'Жильё'}, {emoji:'💊', name:'Здоровье'},
+    {emoji:'🎮', name:'Развлечения'}, {emoji:'👕', name:'Одежда'},
+    {emoji:'📱', name:'Связь'}, {emoji:'📦', name:'Другое'},
+  ],
+  income: [
+    {emoji:'💼', name:'Зарплата'}, {emoji:'💰', name:'Фриланс'},
+    {emoji:'🎁', name:'Подарок'}, {emoji:'📈', name:'Дивиденды'},
+    {emoji:'🏠', name:'Аренда'}, {emoji:'📦', name:'Другое'},
+  ],
+};
+
+const EMOJI_PALETTE = [
+  '🍕','🍔','🍜','☕','🍎','🛒','🚇','🚗','✈️','⛽',
+  '🏠','💡','🔧','🛁','🎮','🎬','🎵','📚','🏋️','⚽',
+  '👕','👟','👜','💄','💊','🏥','🦷','🧴','📱','💻',
+  '🎁','💝','🌸','🐾','🌴','🎓','💼','💰','📈','💳',
+  '🏦','🎰','⭐','🌟','🔥','💸','🛍️','🧾','🏧','📦',
+];
+
+const COLORS = ['#6C7EFF','#FF5370','#00D4A0','#FFB547','#B57BFF','#FF8C5A','#00B4D8','#F72585','#52B788','#E9C46A'];
+
+// ─── Storage ─────────────────────────────────────────────────────────────────
+function load() { try { return JSON.parse(localStorage.getItem('spendly_v1') || '{}'); } catch { return {}; } }
+function save(data) { localStorage.setItem('spendly_v1', JSON.stringify(data)); }
+function getData() {
+  const d = load();
+  if (!d.transactions) d.transactions = [];
+  if (!d.budgets) d.budgets = {};
+  if (!d.cats) d.cats = { expense: [...DEFAULT_CATS.expense], income: [...DEFAULT_CATS.income] };
+  // Migrate old data that has no cats stored
+  if (!d.cats.expense) d.cats.expense = [...DEFAULT_CATS.expense];
+  if (!d.cats.income) d.cats.income = [...DEFAULT_CATS.income];
+  return d;
+}
+function getCats(type) { return getData().cats[type]; }
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentTab = 'home';
+let addType = 'expense';
+let selectedCat = null;
+let catEditMode = false;
+let catSheetType = 'expense';
+let selectedEmoji = '';
+let historyMonth = new Date();
+let statsMonth = new Date();
+historyMonth = new Date(historyMonth.getFullYear(), historyMonth.getMonth(), 1);
+statsMonth = new Date(statsMonth.getFullYear(), statsMonth.getMonth(), 1);
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₽'; }
+function fmtNum(n) { return new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))); }
+function monthName(d) { return d.toLocaleString('ru-RU', {month: 'long', year: 'numeric'}); }
+function txDate(tx) { return new Date(tx.date + 'T12:00:00'); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+function getEmojiForCat(type, name) {
+  const cats = getCats(type);
+  return (cats.find(c => c.name === name) || {emoji:'📦'}).emoji;
+}
+
+// ─── Tab navigation ───────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  currentTab = tab;
+  if (tab === 'home') renderHome();
+  if (tab === 'history') renderHistory();
+  if (tab === 'stats') renderStats();
+  if (tab === 'budget') renderBudget();
+  if (tab === 'add') initAdd();
+}
+
+// ─── Home ─────────────────────────────────────────────────────────────────────
+function renderHome() {
+  const data = getData();
+  const now = new Date();
+  const mo = now.getMonth(), yr = now.getFullYear();
+  let totalIncome = 0, totalExpense = 0;
+  data.transactions.forEach(tx => {
+    const d = txDate(tx);
+    if (d.getMonth() === mo && d.getFullYear() === yr) {
+      if (tx.type === 'income') totalIncome += tx.amount; else totalExpense += tx.amount;
+    }
+  });
+  const balance = data.transactions.reduce((s, tx) => tx.type === 'income' ? s + tx.amount : s - tx.amount, 0);
+  document.getElementById('home-balance').textContent = fmt(balance);
+  document.getElementById('home-income').textContent = fmt(totalIncome);
+  document.getElementById('home-expense').textContent = fmt(totalExpense);
+  const recent = [...data.transactions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
+  const list = document.getElementById('home-tx-list');
+  list.innerHTML = recent.length
+    ? recent.map(tx => txHTML(tx, data)).join('')
+    : '<div class="empty"><div class="empty-icon">💸</div><div class="empty-text">Пока нет операций</div></div>';
+}
+
+function txHTML(tx, data) {
+  const emoji = getEmojiForCat(tx.type, tx.category);
+  const d = txDate(tx);
+  const dateStr = d.toLocaleDateString('ru-RU', {day:'numeric', month:'short'});
+  return `<div class="tx-item" onclick="openTxSheet(${tx.id})">
+    <div class="tx-icon ${tx.type}">${emoji}</div>
+    <div class="tx-meta">
+      <div class="tx-name">${tx.category}${tx.comment ? ' · ' + tx.comment : ''}</div>
+      <div class="tx-date">${dateStr}</div>
+    </div>
+    <div class="tx-amount ${tx.type}">${tx.type==='expense'?'−':'+'}${fmtNum(tx.amount)} ₽</div>
+  </div>`;
+}
+
+// ─── Add ──────────────────────────────────────────────────────────────────────
+function initAdd() {
+  catEditMode = false;
+  updateEditBtn();
+  document.getElementById('add-new-cat-hint').style.display = 'none';
+  document.getElementById('tx-date').value = todayStr();
+  document.getElementById('amount-input').value = '';
+  document.getElementById('tx-comment').value = '';
+  selectedCat = null;
+  updateAddDate();
+  renderCats();
+}
+
+function updateAddDate() {
+  const val = document.getElementById('tx-date').value;
+  const d = val ? new Date(val + 'T12:00:00') : new Date();
+  document.getElementById('add-date-display').textContent = d.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+}
+document.getElementById('tx-date').addEventListener('change', updateAddDate);
+
+function setType(type) {
+  addType = type;
+  document.getElementById('btn-expense').className = 'type-btn' + (type==='expense'?' active-expense':'');
+  document.getElementById('btn-income').className = 'type-btn' + (type==='income'?' active-income':'');
+  selectedCat = null;
+  renderCats();
+}
+
+function renderCats() {
+  const cats = getCats(addType);
+  document.getElementById('cats-grid').innerHTML = cats.map(c =>
+    `<div class="cat-btn${selectedCat===c.name?' selected':''}${catEditMode?' edit-mode':''}" onclick="${catEditMode ? '' : `selectCat('${c.name.replace(/'/g,"\\'")}')` }">
+      ${catEditMode ? `<div class="cat-delete-btn" onclick="deleteCat('${addType}','${c.name.replace(/'/g,"\\'")}')">×</div>` : ''}
+      ${c.emoji}<span>${c.name}</span>
+    </div>`
+  ).join('');
+}
+
+function selectCat(name) {
+  if (catEditMode) return;
+  selectedCat = name;
+  renderCats();
+}
+
+function toggleCatEditMode() {
+  catEditMode = !catEditMode;
+  updateEditBtn();
+  document.getElementById('add-new-cat-hint').style.display = catEditMode ? 'block' : 'none';
+  renderCats();
+}
+
+function updateEditBtn() {
+  const btn = document.getElementById('edit-cats-btn');
+  if (catEditMode) {
+    btn.classList.add('active-edit');
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Готово`;
+  } else {
+    btn.classList.remove('active-edit');
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Редактировать`;
+  }
+}
+
+function deleteCat(type, name) {
+  const data = getData();
+  const cats = data.cats[type];
+  if (cats.length <= 1) { showToast('Нельзя удалить последнюю категорию'); return; }
+  data.cats[type] = cats.filter(c => c.name !== name);
+  save(data);
+  if (selectedCat === name) selectedCat = null;
+  renderCats();
+  showToast('Категория удалена');
+}
+
+function openAddCatSheet() {
+  catSheetType = addType;
+  openCatSheet();
+}
+
+// ─── Category constructor sheet ───────────────────────────────────────────────
+function openCatSheet() {
+  selectedEmoji = '';
+  document.getElementById('new-cat-name').value = '';
+  document.getElementById('new-cat-emoji-custom').value = '';
+  setCatSheetType(catSheetType);
+  renderEmojiPicker();
+  document.getElementById('cat-sheet').classList.add('open');
+}
+
+function closeCatSheet() {
+  document.getElementById('cat-sheet').classList.remove('open');
+}
+
+function setCatSheetType(type) {
+  catSheetType = type;
+  document.getElementById('cs-btn-expense').className = 'type-btn' + (type==='expense'?' active-expense':'');
+  document.getElementById('cs-btn-income').className = 'type-btn' + (type==='income'?' active-income':'');
+  renderCatSheetList();
+}
+
+function renderCatSheetList() {
+  const cats = getCats(catSheetType);
+  const el = document.getElementById('cat-sheet-list');
+  el.innerHTML = cats.map((c, i) => `
+    <div class="cat-edit-item">
+      <div class="cat-edit-emoji">${c.emoji}</div>
+      <div class="cat-edit-name">${c.name}</div>
+      <button class="cat-edit-del" onclick="deleteCatFromSheet('${catSheetType}','${c.name.replace(/'/g,"\\'")}','${i}')" ${cats.length <= 1 ? 'disabled' : ''}>×</button>
+    </div>
+  `).join('');
+}
+
+function deleteCatFromSheet(type, name) {
+  const data = getData();
+  if (data.cats[type].length <= 1) { showToast('Минимум одна категория'); return; }
+  data.cats[type] = data.cats[type].filter(c => c.name !== name);
+  save(data);
+  if (selectedCat === name && addType === type) selectedCat = null;
+  renderCatSheetList();
+  renderCats();
+  showToast('Удалено');
+}
+
+function renderEmojiPicker() {
+  document.getElementById('emoji-picker').innerHTML = EMOJI_PALETTE.map(e =>
+    `<div class="emoji-opt${selectedEmoji===e?' selected':''}" onclick="pickEmoji('${e}')">${e}</div>`
+  ).join('');
+}
+
+function pickEmoji(e) {
+  selectedEmoji = e;
+  document.getElementById('new-cat-emoji-custom').value = '';
+  renderEmojiPicker();
+}
+
+function addNewCat() {
+  const customEmoji = document.getElementById('new-cat-emoji-custom').value.trim();
+  const emoji = customEmoji || selectedEmoji;
+  const name = document.getElementById('new-cat-name').value.trim();
+  if (!emoji) { showToast('Выбери эмодзи'); return; }
+  if (!name) { showToast('Введи название'); return; }
+  const data = getData();
+  if (data.cats[catSheetType].find(c => c.name === name)) { showToast('Такая категория уже есть'); return; }
+  data.cats[catSheetType].push({ emoji, name });
+  save(data);
+  document.getElementById('new-cat-name').value = '';
+  document.getElementById('new-cat-emoji-custom').value = '';
+  selectedEmoji = '';
+  renderEmojiPicker();
+  renderCatSheetList();
+  renderCats();
+  showToast(`✅ Категория «${name}» добавлена`);
+}
+
+// ─── Save transaction ─────────────────────────────────────────────────────────
+function saveTransaction() {
+  const amount = parseFloat(document.getElementById('amount-input').value);
+  if (!amount || amount <= 0) { showToast('Введи сумму'); return; }
+  if (!selectedCat) { showToast('Выбери категорию'); return; }
+  const date = document.getElementById('tx-date').value || todayStr();
+  const comment = document.getElementById('tx-comment').value.trim();
+  const data = getData();
+  data.transactions.push({ id: Date.now(), type: addType, amount, category: selectedCat, date, comment });
+  save(data);
+  showToast(addType === 'expense' ? '✅ Расход добавлен' : '✅ Доход добавлен');
+  document.getElementById('amount-input').value = '';
+  document.getElementById('tx-comment').value = '';
+  selectedCat = null;
+  catEditMode = false;
+  updateEditBtn();
+  document.getElementById('add-new-cat-hint').style.display = 'none';
+  renderCats();
+  document.getElementById('tx-date').value = todayStr();
+  updateAddDate();
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+function changeMonth(dir) {
+  historyMonth = new Date(historyMonth.getFullYear(), historyMonth.getMonth() + dir, 1);
+  renderHistory();
+}
+function renderHistory() {
+  const mo = historyMonth.getMonth(), yr = historyMonth.getFullYear();
+  document.getElementById('history-month-label').textContent = monthName(historyMonth);
+  const data = getData();
+  const txs = data.transactions
+    .filter(tx => { const d = txDate(tx); return d.getMonth()===mo && d.getFullYear()===yr; })
+    .sort((a,b) => new Date(b.date) - new Date(a.date));
+  const el = document.getElementById('history-list');
+  if (!txs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет операций за этот месяц</div></div>'; return; }
+  const groups = {};
+  txs.forEach(tx => { if (!groups[tx.date]) groups[tx.date] = []; groups[tx.date].push(tx); });
+  let html = '';
+  Object.entries(groups).sort((a,b) => new Date(b[0])-new Date(a[0])).forEach(([date, group]) => {
+    const d = new Date(date + 'T12:00:00');
+    html += `<div class="date-group-label">${d.toLocaleDateString('ru-RU', {weekday:'short', day:'numeric', month:'short'})}</div>
+             <div class="card" style="padding:4px 16px">${group.map(tx => txHTML(tx, data)).join('')}</div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function changeStatsMonth(dir) {
+  statsMonth = new Date(statsMonth.getFullYear(), statsMonth.getMonth() + dir, 1);
+  renderStats();
+}
+function renderStats() {
+  const mo = statsMonth.getMonth(), yr = statsMonth.getFullYear();
+  document.getElementById('stats-month-label').textContent = monthName(statsMonth);
+  const data = getData();
+  const txs = data.transactions.filter(tx => { const d = txDate(tx); return d.getMonth()===mo && d.getFullYear()===yr; });
+  let totalIncome = 0, totalExpense = 0;
+  const catMap = {};
+  txs.forEach(tx => {
+    if (tx.type === 'income') totalIncome += tx.amount;
+    else { totalExpense += tx.amount; catMap[tx.category] = (catMap[tx.category]||0) + tx.amount; }
+  });
+  document.getElementById('stats-income').textContent = fmt(totalIncome);
+  document.getElementById('stats-expense').textContent = fmt(totalExpense);
+  const net = totalIncome - totalExpense;
+  const netEl = document.getElementById('stats-net');
+  netEl.textContent = (net>=0?'+':'−') + fmtNum(net) + ' ₽';
+  netEl.style.color = net >= 0 ? 'var(--income)' : 'var(--expense)';
+  const canvas = document.getElementById('stats-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 32;
+  canvas.width = W*dpr; canvas.height = 200*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = '200px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, 200);
+  const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+  const legend = document.getElementById('stats-legend');
+  if (!cats.length) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
+    ctx.font = '14px -apple-system'; ctx.textAlign = 'center';
+    ctx.fillText('Нет расходов за этот месяц', W/2, 100);
+    legend.innerHTML = ''; return;
+  }
+  const cx = W/2, cy = 100, r = 80;
+  let startAngle = -Math.PI/2;
+  cats.forEach(([cat, amt], i) => {
+    const slice = (amt/totalExpense)*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,startAngle,startAngle+slice); ctx.closePath();
+    ctx.fillStyle = COLORS[i%COLORS.length]; ctx.fill();
+    startAngle += slice;
+  });
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.55,0,Math.PI*2);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()||'#111320'; ctx.fill();
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#E8E9F5';
+  ctx.font = 'bold 18px -apple-system'; ctx.textAlign = 'center';
+  ctx.fillText(fmtNum(totalExpense), cx, cy-4);
+  ctx.font = '11px -apple-system';
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text2').trim()||'#7B7FA8';
+  ctx.fillText('расходы ₽', cx, cy+14);
+  legend.innerHTML = cats.map(([cat,amt],i) => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>
+      <span class="legend-label">${cat}</span>
+      <span class="legend-val">${fmtNum(amt)}</span>
+    </div>`).join('');
+}
+
+// ─── Budget ───────────────────────────────────────────────────────────────────
+function renderBudget() {
+  const now = new Date();
+  document.getElementById('budget-month-display').textContent = monthName(now);
+  const data = getData();
+  const mo = now.getMonth(), yr = now.getFullYear();
+  const txs = data.transactions.filter(tx => { const d = txDate(tx); return tx.type==='expense' && d.getMonth()===mo && d.getFullYear()===yr; });
+  const spentTotal = txs.reduce((s,tx) => s+tx.amount, 0);
+  const totalLimit = data.budgets._total || 0;
+  document.getElementById('budget-total-display').textContent = totalLimit ? fmt(totalLimit) : 'не задан';
+  document.getElementById('budget-spent-display').textContent = fmt(spentTotal);
+  if (totalLimit) {
+    const left = totalLimit - spentTotal;
+    const leftEl = document.getElementById('budget-left-display');
+    leftEl.textContent = fmt(Math.max(0,left));
+    leftEl.style.color = left < 0 ? 'var(--expense)' : 'var(--income)';
+  } else document.getElementById('budget-left-display').textContent = '—';
+  const catSpent = {};
+  txs.forEach(tx => { catSpent[tx.category] = (catSpent[tx.category]||0) + tx.amount; });
+  const bars = document.getElementById('budget-bars');
+  const catBudgets = Object.entries(data.budgets).filter(([k]) => k!=='_total');
+  if (!catBudgets.length) { bars.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-text" style="color:var(--text2)">Нажми «Настроить бюджет»</div></div>'; return; }
+  bars.innerHTML = catBudgets.map(([cat,limit]) => {
+    const spent = catSpent[cat]||0;
+    const pct = Math.min(100, limit>0?(spent/limit*100):0);
+    const color = pct>90?'var(--expense)':pct>70?'var(--warn)':'var(--income)';
+    return `<div class="budget-item">
+      <div class="budget-head"><span class="budget-cat">${cat}</span><span class="budget-nums">${fmtNum(spent)} / ${fmtNum(limit)} ₽</span></div>
+      <div class="budget-bar-wrap"><div class="budget-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="budget-pct" style="color:${color}">${Math.round(pct)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function openBudgetSheet() {
+  const data = getData();
+  document.getElementById('budget-total-input').value = data.budgets._total || '';
+  const cats = getCats('expense');
+  document.getElementById('budget-cat-inputs').innerHTML = cats.map(c => `
+    <div class="label">${c.emoji} ${c.name}</div>
+    <input class="text-input" data-cat="${c.name}" type="number" inputmode="decimal" placeholder="0 (без лимита)" value="${data.budgets[c.name]||''}">
+  `).join('');
+  document.getElementById('budget-sheet').classList.add('open');
+}
+function closeBudgetSheet() { document.getElementById('budget-sheet').classList.remove('open'); }
+function saveBudget() {
+  const data = getData();
+  const total = parseFloat(document.getElementById('budget-total-input').value)||0;
+  data.budgets = { _total: total };
+  document.querySelectorAll('#budget-cat-inputs [data-cat]').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (v>0) data.budgets[inp.dataset.cat] = v;
+  });
+  save(data); closeBudgetSheet();
+  showToast('✅ Бюджет сохранён'); renderBudget();
+}
+
+// ─── Transaction sheet ────────────────────────────────────────────────────────
+function openTxSheet(id) {
+  const data = getData();
+  const tx = data.transactions.find(t => t.id===id);
+  if (!tx) return;
+  const emoji = getEmojiForCat(tx.type, tx.category);
+  const d = txDate(tx);
+  document.getElementById('tx-sheet-title').textContent = `${emoji} ${tx.category}`;
+  document.getElementById('tx-sheet-body').innerHTML = `
+    <div class="card-sm" style="margin-bottom:12px">
+      <div class="stat-row"><span class="stat-row-label">Тип</span><span class="chip ${tx.type}">${tx.type==='expense'?'↓ Расход':'↑ Доход'}</span></div>
+      <div class="stat-row"><span class="stat-row-label">Сумма</span><span class="stat-row-val ${tx.type}">${tx.type==='expense'?'−':'+'}${fmtNum(tx.amount)} ₽</span></div>
+      <div class="stat-row"><span class="stat-row-label">Дата</span><span>${d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</span></div>
+      ${tx.comment?`<div class="stat-row"><span class="stat-row-label">Комментарий</span><span>${tx.comment}</span></div>`:''}
+    </div>
+    <div class="label">Изменить сумму</div>
+    <input class="text-input" id="edit-amount" type="number" inputmode="decimal" value="${tx.amount}">
+    <div class="label" style="margin-top:12px">Комментарий</div>
+    <input class="text-input" id="edit-comment" type="text" value="${tx.comment||''}">
+    <button class="btn-primary" style="margin-top:12px" onclick="editTx(${id})">Сохранить изменения</button>
+    <button class="btn-danger" style="width:100%;margin-top:8px" onclick="deleteTx(${id})">🗑 Удалить</button>
+    <button class="btn-secondary" style="width:100%;margin-top:8px" onclick="closeTxSheet()">Отмена</button>
+  `;
+  document.getElementById('tx-sheet').classList.add('open');
+}
+function closeTxSheet() { document.getElementById('tx-sheet').classList.remove('open'); }
+function editTx(id) {
+  const amount = parseFloat(document.getElementById('edit-amount').value);
+  if (!amount||amount<=0) { showToast('Некорректная сумма'); return; }
+  const comment = document.getElementById('edit-comment').value.trim();
+  const data = getData();
+  const tx = data.transactions.find(t => t.id===id);
+  if (tx) { tx.amount=amount; tx.comment=comment; }
+  save(data); closeTxSheet();
+  showToast('✅ Изменено');
+  if (currentTab==='home') renderHome();
+  if (currentTab==='history') renderHistory();
+}
+function deleteTx(id) {
+  const data = getData();
+  data.transactions = data.transactions.filter(t => t.id!==id);
+  save(data); closeTxSheet();
+  showToast('🗑 Удалено');
+  if (currentTab==='home') renderHome();
+  if (currentTab==='history') renderHistory();
+}
+
+// Close overlays on backdrop
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target===el) el.classList.remove('open'); });
+});
+
+// custom emoji input clears picker selection
+document.getElementById('new-cat-emoji-custom').addEventListener('input', () => {
+  selectedEmoji = '';
+  renderEmojiPicker();
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initAdd();
+renderHome();
+</script>
