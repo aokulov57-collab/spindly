@@ -299,6 +299,8 @@
   .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .chip.income { background: var(--income-dim); color: var(--income); }
   .chip.expense { background: var(--expense-dim); color: var(--expense); }
+  .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--surface2); color: var(--text2); border: 1.5px solid transparent; transition: all .15s; white-space: nowrap; }
+  .filter-chip.active { background: var(--accent-dim, rgba(99,102,241,.15)); color: var(--accent); border-color: var(--accent); }
 
   .divider { height: 1px; background: var(--border); margin: 12px 0; }
   .row { display: flex; align-items: center; gap: 8px; }
@@ -374,6 +376,7 @@
         <div class="month-nav-label" id="history-month-label"></div>
         <div class="month-nav-btn" onclick="changeMonth(1)">›</div>
       </div>
+      <div id="history-cat-filters" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
       <div id="history-list"></div>
     </div>
 
@@ -441,6 +444,18 @@
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="tx-sheet-title">Транзакция</div>
     <div id="tx-sheet-body"></div>
+  </div>
+</div>
+
+<!-- Category detail sheet -->
+<div class="overlay" id="cat-detail-sheet">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="sheet-title" id="cat-detail-title" style="margin:0">Категория</div>
+      <span id="cat-detail-total" style="font-size:17px;font-weight:700;color:var(--expense)"></span>
+    </div>
+    <div id="cat-detail-list"></div>
   </div>
 </div>
 
@@ -538,6 +553,7 @@ let catSheetType = 'expense';
 let selectedEmoji = '';
 let historyMonth = new Date();
 let statsMonth = new Date();
+let historyCatFilter = null;
 historyMonth = new Date(historyMonth.getFullYear(), historyMonth.getMonth(), 1);
 statsMonth = new Date(statsMonth.getFullYear(), statsMonth.getMonth(), 1);
 
@@ -790,14 +806,29 @@ function saveTransaction() {
 // ─── History ──────────────────────────────────────────────────────────────────
 function changeMonth(dir) {
   historyMonth = new Date(historyMonth.getFullYear(), historyMonth.getMonth() + dir, 1);
+  historyCatFilter = null;
   renderHistory();
 }
 function renderHistory() {
   const mo = historyMonth.getMonth(), yr = historyMonth.getFullYear();
   document.getElementById('history-month-label').textContent = monthName(historyMonth);
   const data = getData();
-  const txs = data.transactions
-    .filter(tx => { const d = txDate(tx); return d.getMonth()===mo && d.getFullYear()===yr; })
+  const allMonthTxs = data.transactions
+    .filter(tx => { const d = txDate(tx); return d.getMonth()===mo && d.getFullYear()===yr; });
+  const expCats = [...new Set(allMonthTxs.filter(tx=>tx.type==='expense').map(tx=>tx.category))];
+  const filtersEl = document.getElementById('history-cat-filters');
+  if (expCats.length > 1) {
+    filtersEl.innerHTML = ['Все', ...expCats].map(c => {
+      const active = c === 'Все' ? !historyCatFilter : historyCatFilter === c;
+      const emoji = c === 'Все' ? '' : ((data.cats.expense.find(x=>x.name===c)||{}).emoji||'') + ' ';
+      return `<span class="filter-chip${active?' active':''}" onclick="setHistoryFilter(${c==='Все'?'null':`'${c.replace(/'/g,"\\'")}'`})">${emoji}${c}</span>`;
+    }).join('');
+  } else {
+    filtersEl.innerHTML = '';
+    historyCatFilter = null;
+  }
+  const txs = allMonthTxs
+    .filter(tx => !historyCatFilter || tx.category === historyCatFilter)
     .sort((a,b) => new Date(b.date) - new Date(a.date));
   const el = document.getElementById('history-list');
   if (!txs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет операций за этот месяц</div></div>'; return; }
@@ -810,6 +841,10 @@ function renderHistory() {
              <div class="card" style="padding:4px 16px">${group.map(tx => txHTML(tx, data)).join('')}</div>`;
   });
   el.innerHTML = html;
+}
+function setHistoryFilter(cat) {
+  historyCatFilter = cat;
+  renderHistory();
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
@@ -868,11 +903,36 @@ function renderStats() {
   ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text2').trim()||'#7B7FA8';
   ctx.fillText('расходы ₽', cx, cy+14);
   legend.innerHTML = cats.map(([cat,amt],i) => `
-    <div class="legend-item">
+    <div class="legend-item" style="cursor:pointer" onclick="openCatDetail('${cat.replace(/'/g,"\\'")}')">
       <div class="legend-dot" style="background:${COLORS[i%COLORS.length]}"></div>
       <span class="legend-label">${cat}</span>
       <span class="legend-val">${fmtNum(amt)}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:2px">›</span>
     </div>`).join('');
+}
+
+// ─── Category detail sheet ───────────────────────────────────────────────────
+function openCatDetail(cat) {
+  const mo = statsMonth.getMonth(), yr = statsMonth.getFullYear();
+  const data = getData();
+  const txs = data.transactions.filter(tx => {
+    const d = txDate(tx);
+    return tx.type === 'expense' && tx.category === cat && d.getMonth()===mo && d.getFullYear()===yr;
+  }).sort((a,b) => new Date(b.date)-new Date(a.date));
+  const emoji = (data.cats.expense.find(c=>c.name===cat)||{}).emoji || '💳';
+  const total = txs.reduce((s,tx)=>s+tx.amount,0);
+  document.getElementById('cat-detail-title').textContent = emoji + ' ' + cat;
+  document.getElementById('cat-detail-total').textContent = fmt(total);
+  const groups = {};
+  txs.forEach(tx => { if (!groups[tx.date]) groups[tx.date]=[]; groups[tx.date].push(tx); });
+  let html = '';
+  Object.entries(groups).sort((a,b)=>new Date(b[0])-new Date(a[0])).forEach(([date,group])=>{
+    const d = new Date(date+'T12:00:00');
+    html += `<div class="date-group-label">${d.toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}</div>
+             <div class="card" style="padding:4px 16px">${group.map(tx=>txHTML(tx,data)).join('')}</div>`;
+  });
+  document.getElementById('cat-detail-list').innerHTML = html || '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет операций</div></div>';
+  document.getElementById('cat-detail-sheet').classList.add('open');
 }
 
 // ─── Budget ───────────────────────────────────────────────────────────────────
